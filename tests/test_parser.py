@@ -54,3 +54,19 @@ class ParserTests(unittest.TestCase):
 
         self.assertEqual(len(result.records), 2)
         self.assertTrue(any(warning.kind == "duplicate-score" for warning in result.warnings))
+
+    def test_parse_whatsapp_export_ignores_multimedia_and_chatty_messages(self) -> None:
+        result = parse_whatsapp_export(
+            """
+13/9/26, 8:10 - Laura Santa Cruz: Guten fucking Morgen
+13/9/26, 8:10 - Cambiaste la descripción del grupo
+17/9/26, 14:09 - Salvatore Lauricella: <Multimedia omitido>
+17/9/26, 14:10 - Añadiste a Antonio Robert.
+19.09.2026, 09:01 - Anna: 452
+19.09.2026, 09:02 - Ben: umsteigen.app · Berlin 🚇 19. Sept. 390 / 500 · Umsteige-Profi 🟢–🟡–🟢–🟢–🟢
+            """.strip()
+        )
+
+        self.assertEqual(len(result.records), 2)
+        self.assertEqual([record.player for record in result.records], ["Anna", "Ben"])
+        self.assertEqual([record.score for record in result.records], [452, 390])

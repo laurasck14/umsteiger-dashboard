@@ -9,6 +9,9 @@ from .models import ParseResult, ParseWarning, ScoreRecord
 LINE_PATTERN = re.compile(
     r"^(?P<date>\d{1,2}[./]\d{1,2}[./]\d{2,4}),\s*(?P<time>\d{1,2}:\d{2})\s*-\s*(?P<sender>[^:]+):\s*(?P<message>.*)$"
 )
+SYSTEM_LINE_PATTERN = re.compile(
+    r"^(?P<date>\d{1,2}[./]\d{1,2}[./]\d{2,4}),\s*(?P<time>\d{1,2}:\d{2})\s*-\s*(?P<message>.*)$"
+)
 SCORE_PATTERN = re.compile(r"(?P<score>\d{1,3})\s*/\s*(?P<max_score>\d{1,3})")
 PLAIN_SCORE_PATTERN = re.compile(r"^\d{1,3}$")
 
@@ -34,18 +37,27 @@ def _normalize_date(raw_date: str) -> str:
 
 def _extract_score(message: str) -> tuple[int | None, int | None, str]:
     trimmed = message.strip()
-    explicit_match = SCORE_PATTERN.search(trimmed)
-    if explicit_match is not None:
-        score = int(explicit_match.group("score"))
-        max_score = int(explicit_match.group("max_score"))
-        if 0 <= score <= 500 and 0 < max_score <= 500:
-            return (score, max_score, "parsed")
+    if not trimmed:
+        return (None, None, "missing")
+
+    if re.search(r"\d{1,2}[./]\d{1,2}[./]\d{2,4}", trimmed):
         return (None, None, "missing")
 
     if PLAIN_SCORE_PATTERN.fullmatch(trimmed) is not None:
         score = int(trimmed)
         if 0 <= score <= 500:
             return (score, None, "parsed")
+        return (None, None, "missing")
+
+    if "umsteigen.app" not in trimmed.lower():
+        return (None, None, "missing")
+
+    explicit_match = SCORE_PATTERN.search(trimmed)
+    if explicit_match is not None:
+        score = int(explicit_match.group("score"))
+        max_score = int(explicit_match.group("max_score"))
+        if 0 <= score <= 500 and 0 < max_score <= 500:
+            return (score, max_score, "parsed")
         return (None, None, "missing")
 
     return (None, None, "missing")
@@ -123,6 +135,11 @@ def parse_whatsapp_export(text: str, known_players: list[str] | None = None) -> 
                 line_number=line_number,
                 line=raw_line,
             )
+            continue
+
+        if SYSTEM_LINE_PATTERN.match(stripped) is not None:
+            finalize(current_line)
+            current_line = None
             continue
 
         if current_line is not None:

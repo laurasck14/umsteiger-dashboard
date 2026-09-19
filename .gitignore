@@ -1,0 +1,5 @@
+.venv-1/
+umsteiger-dashboard/
+__pycache__/
+*.py[cod]
+.umsteiger_state.json

@@ -43,3 +43,7 @@ The parser expects WhatsApp `.txt` exports with lines like:
 It also supports simple score-only messages like `452`.
 
 Only numeric score messages between 0 and 500 are treated as valid plain score entries.
+
+## Player Portraits
+
+Place each participant's portrait in `assets/` with the exact dashboard player name as the filename, for example `Andrea Petrus.png`. PNG, JPEG, WebP, and GIF files are supported. The portrait is shown above that player's highest historical daily score and beside their name in the average-score chart.

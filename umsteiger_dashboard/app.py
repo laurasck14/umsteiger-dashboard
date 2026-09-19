@@ -10,7 +10,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Iterable
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from .charting import build_average_score_series, build_daily_score_series
 from .models import AverageScoreSeries, DailyScoreSeries, ParseWarning, ScoreRecord
@@ -43,12 +43,33 @@ def _dates_for_series(series: list[DailyScoreSeries]) -> list[str]:
     return [point.date for point in series[0].points]
 
 
+def _portrait_url(player: str) -> str | None:
+    assets_path = Path(__file__).resolve().parent.parent / "assets"
+    normalized_player = "".join(character for character in player.casefold() if character.isalnum())
+    asset_paths = sorted(assets_path.iterdir(), key=lambda path: (path.suffix.casefold() != ".png", path.name.casefold()))
+    for asset_path in asset_paths:
+        normalized_stem = "".join(character for character in asset_path.stem.casefold() if character.isalnum())
+        if asset_path.is_file() and normalized_stem == normalized_player:
+            return f"/assets/{quote(asset_path.name)}"
+    return None
+
+
+def _portrait_image(url: str, x: float, y: float, size: float, alt: str) -> str:
+    return (
+        f'<image href="{_escape(url)}" x="{x:.1f}" y="{y:.1f}" '
+        f'width="{size:.1f}" height="{size:.1f}" preserveAspectRatio="xMidYMid meet" '
+        f'role="img" aria-label="{_escape(alt)}" />'
+    )
+
+
 def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
     width = 980
     height = 360
     padding_x = 52
-    padding_top = 28
+    padding_top = 68
     padding_bottom = 54
+    portrait_size = 42
+    portrait_row_gap = 2
     dates = _dates_for_series(series)
     score_values = [point.score for entry in series for point in entry.points if point.score is not None]
     max_score = max([500, *score_values]) if score_values else 500
@@ -63,6 +84,62 @@ def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
     def y_for_score(score: int) -> float:
         return padding_top + inner_height - ((score / max_score) * inner_height)
 
+    data_points = [
+        (x_for_index(index), y_for_score(point.score))
+        for entry in series
+        for index, point in enumerate(entry.points)
+        if point.score is not None
+    ]
+    peak_portraits: list[tuple[str, float, float, str]] = []
+    for entry in series:
+        peak_point = max(
+            (point for point in entry.points if point.score is not None),
+            key=lambda point: point.score,
+            default=None,
+        )
+        if peak_point is None:
+            continue
+        portrait_url = _portrait_url(entry.player)
+        if portrait_url:
+            peak_index = entry.points.index(peak_point)
+            peak_portraits.append(
+                (entry.player, x_for_index(peak_index), y_for_score(peak_point.score), portrait_url)
+            )
+
+    portrait_positions: dict[str, tuple[float, float]] = {}
+    placed_boxes: list[tuple[float, float, float, float]] = []
+    collision_inset = portrait_size * 0.3
+    horizontal_offsets = [0, -20, 20, -40, 40]
+    for player, point_x, point_y, _ in peak_portraits:
+        for row in range(3):
+            top = point_y - portrait_size - 16 - row * (portrait_size + portrait_row_gap)
+            for offset in horizontal_offsets:
+                left = max(padding_x, min(width - padding_x - portrait_size, point_x - portrait_size / 2 + offset))
+                candidate = (
+                    left + collision_inset,
+                    top + collision_inset,
+                    left + portrait_size - collision_inset,
+                    top + portrait_size - collision_inset,
+                )
+                overlaps = any(
+                    candidate[0] < box[2]
+                    and candidate[2] > box[0]
+                    and candidate[1] < box[3]
+                    and candidate[3] > box[1]
+                    for box in placed_boxes
+                )
+                blocks_data_point = any(
+                    candidate[0] - 6 < point_x < candidate[2] + 6
+                    and candidate[1] - 6 < point_y < candidate[3] + 6
+                    for point_x, point_y in data_points
+                )
+                if not overlaps and not blocks_data_point:
+                    portrait_positions[player] = (left, top)
+                    placed_boxes.append(candidate)
+                    break
+            if player in portrait_positions:
+                break
+
     pieces = [f'<svg viewBox="0 0 {width} {height}" role="img" aria-label="Daily score chart" class="chart">']
     pieces.append(f'<rect x="0" y="0" width="{width}" height="{height}" rx="24" fill="#ffffff" stroke="#e5e7eb" />')
     pieces.append(f'<line x1="{padding_x}" y1="{padding_top + inner_height}" x2="{padding_x + inner_width}" y2="{padding_top + inner_height}" stroke="#cbd5e1" stroke-width="2" />')
@@ -74,6 +151,11 @@ def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
 
     for entry in series:
         current_segment: list[str] = []
+        peak_point = max(
+            (point for point in entry.points if point.score is not None),
+            key=lambda point: point.score,
+            default=None,
+        )
         for index, point in enumerate(entry.points):
             if point.score is None:
                 if current_segment:
@@ -88,6 +170,20 @@ def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
             current_segment.append(f"{x:.1f},{y:.1f}")
             pieces.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="5" fill="{entry.color}" />')
 
+            if peak_point is point:
+                portrait_url = _portrait_url(entry.player)
+                portrait_position = portrait_positions.get(entry.player)
+                if portrait_url and portrait_position:
+                    pieces.append(
+                        _portrait_image(
+                            portrait_url,
+                            portrait_position[0],
+                            portrait_position[1],
+                            portrait_size,
+                            f"Portrait of {entry.player}",
+                        )
+                    )
+
         if current_segment:
             pieces.append(
                 f'<polyline fill="none" points="{" ".join(current_segment)}" stroke="{entry.color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />'
@@ -101,7 +197,7 @@ def _render_average_chart(series: list[AverageScoreSeries]) -> str:
     width = 980
     bar_height = 30
     gap = 16
-    left_padding = 200
+    left_padding = 250
     right_padding = 120
     top_padding = 28
     bottom_padding = 24
@@ -115,7 +211,10 @@ def _render_average_chart(series: list[AverageScoreSeries]) -> str:
     for index, entry in enumerate(series):
         y = top_padding + index * (bar_height + gap)
         bar_width = (entry.average_score / max_value) * usable_width
-        pieces.append(f'<text x="24" y="{y + 20}" fill="#111827" font-size="14">{_escape(entry.player)}</text>')
+        portrait_url = _portrait_url(entry.player)
+        if portrait_url:
+            pieces.append(_portrait_image(portrait_url, 24, y - 6, 42, f"Portrait of {entry.player}"))
+        pieces.append(f'<text x="78" y="{y + 20}" fill="#111827" font-size="14">{_escape(entry.player)}</text>')
         pieces.append(f'<rect x="{left_padding}" y="{y}" width="{bar_width:.1f}" height="{bar_height}" rx="12" fill="{entry.color}" />')
         pieces.append(f'<text x="{left_padding + bar_width + 10:.1f}" y="{y + 20}" fill="#111827" font-size="14">{int(round(entry.average_score))}</text>')
 

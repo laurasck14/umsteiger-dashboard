@@ -5,6 +5,17 @@ from collections import defaultdict
 from .models import AverageScoreSeries, DailyPoint, DailyScoreSeries, ScoreRecord
 
 COLORS = ["#2563eb", "#f97316", "#22c55e", "#a855f7", "#ef4444", "#14b8a6"]
+PLAYER_COLORS = {
+    "Salvatore Lauricella": "#7DAD4C",
+    "Antonio Robert": "#DA421E",
+    "Laura Santa Cruz": "#007A5B",
+    "Rajas Sane": "#F0D722",
+    "Andrea Petrus": "#7E5330",
+}
+
+
+def _color_for_player(player: str, fallback_index: int) -> str:
+    return PLAYER_COLORS.get(player, COLORS[fallback_index % len(COLORS)])
 
 
 def build_daily_score_series(records: list[ScoreRecord]) -> list[DailyScoreSeries]:
@@ -20,7 +31,7 @@ def build_daily_score_series(records: list[ScoreRecord]) -> list[DailyScoreSerie
     series: list[DailyScoreSeries] = []
     for index, player in enumerate(players):
         points = [DailyPoint(date=record_date, score=score_lookup.get((player, record_date))) for record_date in dates]
-        series.append(DailyScoreSeries(player=player, color=COLORS[index % len(COLORS)], points=points))
+        series.append(DailyScoreSeries(player=player, color=_color_for_player(player, index), points=points))
 
     return series
 
@@ -38,7 +49,7 @@ def build_average_score_series(records: list[ScoreRecord]) -> list[AverageScoreS
         series.append(
             AverageScoreSeries(
                 player=player,
-                color=COLORS[index % len(COLORS)],
+                color=_color_for_player(player, index),
                 average_score=sum(scores) / len(scores),
                 games_played=len(scores),
             )

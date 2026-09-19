@@ -168,56 +168,88 @@ def _render_page(stored_state, status_message: str | None = None) -> str:
     parts.append(
         """
         <style>
+          @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
           :root {
             color-scheme: light;
-            --bg: #f8fafc;
-            --panel: rgba(255, 255, 255, 0.94);
+            --bg: #f6f1e7;
+            --bg-strong: #efe7d6;
+            --panel: rgba(255, 255, 255, 0.9);
             --panel-strong: #ffffff;
-            --border: rgba(148, 163, 184, 0.24);
-            --text: #0f172a;
-            --muted: #475569;
-            --accent: #2563eb;
-            --warn: #f59e0b;
+            --border: rgba(34, 28, 17, 0.1);
+            --text: #1d1d1b;
+            --muted: #5f5c54;
+            --accent: #f3c64c;
+            --accent-strong: #f0b81a;
+            --primary: #0d2b45;
+            --primary-soft: #e8eff8;
+            --success: #2d7d46;
+            --warning: #c96b11;
+            --shadow: 0 16px 32px rgba(26, 24, 20, 0.08);
           }
           * { box-sizing: border-box; }
-          html, body { margin: 0; min-height: 100%; background: linear-gradient(180deg, #eff6ff 0%, #f8fafc 100%); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+          html, body { margin: 0; min-height: 100%; background: linear-gradient(180deg, var(--bg) 0%, #f8f6f2 100%); color: var(--text); font-family: 'Manrope', 'Avenir Next', 'Segoe UI', sans-serif; }
           body { padding: 32px; }
           .page { max-width: 1200px; margin: 0 auto; display: grid; gap: 24px; }
-          .hero, .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 24px; box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08); }
+          .hero, .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 28px; box-shadow: var(--shadow); }
           .hero { padding: 28px; }
-          .hero h1 { margin: 0 0 8px; font-size: clamp(2rem, 4vw, 3.5rem); }
-          .hero p { margin: 0; max-width: 70ch; color: var(--muted); line-height: 1.6; }
+          .hero-grid { display: grid; grid-template-columns: 1.25fr 0.95fr; gap: 24px; align-items: center; }
+          .eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); font-weight: 700; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
+          .header-link { display: inline-flex; align-items: center; margin-left: 12px; color: var(--primary); text-decoration: none; font-weight: 800; font-size: 0.76rem; letter-spacing: 0.04em; text-transform: uppercase; }
+          .header-link:hover { text-decoration: underline; }
+          .hero h1 { margin: 18px 0 14px; font-size: clamp(2.4rem, 4vw, 4rem); line-height: 0.96; letter-spacing: -0.06em; font-weight: 800; }
+          .hero p { margin: 0; max-width: 60ch; color: var(--muted); line-height: 1.7; font-size: 1.04rem; }
+          .hero-visual { position: relative; border-radius: 24px; overflow: hidden; border: 1px solid var(--border); background: linear-gradient(135deg, #f3e6c9 0%, #e9e1d0 100%); width: 100%; max-width: 760px; aspect-ratio: 1264 / 843; display: flex; align-items: stretch; justify-content: center; margin-left: auto; }
+          .hero-visual img { width: 100%; height: 100%; object-fit: cover; display: block; background: #f7f3ee; }
+          .hero-badge { position: absolute; right: 16px; bottom: 16px; background: rgba(255,255,255,0.86); border: 1px solid rgba(0,0,0,0.05); color: var(--primary); padding: 10px 14px; border-radius: 12px; font-weight: 800; box-shadow: 0 10px 22px rgba(0,0,0,0.06); }
           .toolbar { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 20px; }
           .uploader, .links { padding: 18px; border-radius: 18px; background: #ffffff; border: 1px solid var(--border); }
           .uploader form { display: grid; gap: 12px; }
+          .uploader label { display: block; color: var(--text); font-weight: 700; }
+          .uploader .muted { display: block; margin-top: 6px; }
           input[type='file'], button, .download { width: 100%; border-radius: 999px; border: 1px solid var(--border); padding: 12px 16px; font: inherit; }
           input[type='file'] { background: #ffffff; color: var(--text); }
-          button, .download { display: inline-flex; justify-content: center; align-items: center; background: linear-gradient(135deg, #38bdf8, #0ea5e9); color: #082f49; font-weight: 700; text-decoration: none; }
+          button, .download { display: inline-flex; justify-content: center; align-items: center; background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%); color: #1f1b12; font-weight: 800; text-decoration: none; box-shadow: 0 10px 18px rgba(240, 184, 26, 0.18); }
           .links { display: grid; gap: 12px; align-content: start; }
-          .status { color: #0f172a; background: rgba(37, 99, 235, 0.08); border: 1px solid rgba(37, 99, 235, 0.16); padding: 12px 16px; border-radius: 14px; }
+          .status { color: var(--primary); background: rgba(243, 198, 76, 0.12); border: 1px solid rgba(243, 198, 76, 0.35); padding: 12px 16px; border-radius: 14px; }
           .muted { color: var(--muted); }
           .metrics, .warning-metrics { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-          .metric { padding: 18px; border-radius: 18px; background: #f8fafc; border: 1px solid var(--border); display: grid; gap: 8px; }
-          .metric span { color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; }
-          .metric strong { font-size: 1.8rem; }
+          .metric { padding: 18px; border-radius: 18px; background: #fffdf9; border: 1px solid var(--border); display: grid; gap: 8px; }
+          .metric span { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; }
+          .metric strong { font-size: 1.8rem; font-family: 'Manrope', 'Avenir Next', 'Segoe UI', sans-serif; }
           .panel { padding: 24px; display: grid; gap: 16px; }
           .grid-2 { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
           .chart { width: 100%; height: auto; display: block; }
           table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 18px; }
           th, td { padding: 12px 14px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
-          th { color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; }
+          th { color: var(--primary); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; }
           td { color: var(--text); }
-          .tag { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: rgba(148, 163, 184, 0.1); color: var(--muted); }
+          .tag { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: rgba(13, 43, 69, 0.05); color: var(--primary); font-weight: 700; }
           .warning-list { overflow-x: auto; }
           .footer { color: var(--muted); font-size: 0.92rem; }
-          @media (max-width: 700px) { body { padding: 16px; } .hero, .panel { padding: 18px; } }
+          @media (max-width: 700px) { body { padding: 16px; } .hero, .panel { padding: 18px; } .hero-grid { grid-template-columns: 1fr; } }
         </style>
         """
     )
     parts.append("</head><body><div class='page'>")
     parts.append("<section class='hero'>")
-    parts.append("<h1>Umsteiger Dashboard</h1>")
+    parts.append("<div class='hero-grid'>")
+    parts.append("<div class='hero-copy'>")
+    parts.append("<div style='display:flex; align-items:center; flex-wrap:wrap;'>")
+    parts.append("<div class='eyebrow'>Umsteiger Berlin</div>")
+    parts.append("<a class='header-link' href='https://umsteigen.app/berlin' target='_blank' rel='noreferrer'>Umsteiger app here</a>")
+    parts.append("</div>")
+    parts.append("<h1>Keep score momentum alive.</h1>")
     parts.append("<p>A fully local browser dashboard for WhatsApp score exports from the Umsteigen daily challenge. Upload a chat export, inspect the daily score line chart, and compare player averages without sending data to a server.</p>")
+    parts.append("</div>")
+    parts.append("<div class='hero-visual'>")
+    parts.append("<img src='/assets/group-picture.png' alt='Group chat photo' />")
+    parts.append("</div>")
+    parts.append("</div>")
+    parts.append("</section>")
+
+    if status_message:
+        parts.append(f"<div class='status' style='margin-top: 20px;'>{_escape(status_message)}</div>")
 
     if records:
         parts.append("<section class='panel' style='margin-top: 20px;'>")
@@ -232,8 +264,6 @@ def _render_page(stored_state, status_message: str | None = None) -> str:
     else:
         parts.append("<section class='panel' style='margin-top: 20px;'><h2>Daily scores</h2><p class='muted'>Upload a WhatsApp export or a previously exported CSV/JSON backup to populate the dashboard.</p></section>")
 
-    if status_message:
-        parts.append(f"<div class='status' style='margin-top: 20px;'>{_escape(status_message)}</div>")
     parts.append("<div class='toolbar' style='margin-top: 20px;'>")
     parts.append("<div class='uploader'>")
     parts.append("<form action='/upload' method='post' enctype='multipart/form-data'>")
@@ -246,7 +276,6 @@ def _render_page(stored_state, status_message: str | None = None) -> str:
     parts.append("<a class='download' href='/export.json'>Download JSON</a>")
     parts.append(f"<div class='tag'>Local state file: {_escape(STATE_PATH.name)}</div>")
     parts.append("</div></div>")
-    parts.append("</section>")
 
     if imported_at:
         parts.append(f"<section class='panel'><p class='footer'>Last import: {_escape(imported_at)}")
@@ -324,6 +353,28 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         parsed_url = urlparse(self.path)
         current_state = _load_current_state()
+
+        if parsed_url.path.startswith("/assets/"):
+            asset_path = Path(__file__).resolve().parent.parent / "assets" / parsed_url.path.removeprefix("/assets/")
+            if asset_path.exists() and asset_path.is_file():
+                mime_map = {
+                    ".png": "image/png",
+                    ".jpg": "image/jpeg",
+                    ".jpeg": "image/jpeg",
+                    ".webp": "image/webp",
+                    ".gif": "image/gif",
+                    ".svg": "image/svg+xml",
+                }
+                mime_type = mime_map.get(asset_path.suffix.lower(), "application/octet-stream")
+                data = asset_path.read_bytes()
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", mime_type)
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                return
+            self.send_error(HTTPStatus.NOT_FOUND, "Asset not found")
+            return
 
         if parsed_url.path == "/export.csv":
             records = current_state.records if current_state else []

@@ -54,17 +54,17 @@ def _portrait_url(player: str) -> str | None:
     return None
 
 
-def _portrait_image(url: str, x: float, y: float, size: float, alt: str) -> str:
+def _portrait_image(url: str, x: float, y: float, size: float, alt: str, align: str = "xMidYMid") -> str:
     return (
         f'<image href="{_escape(url)}" x="{x:.1f}" y="{y:.1f}" '
-        f'width="{size:.1f}" height="{size:.1f}" preserveAspectRatio="xMidYMid meet" '
+        f'width="{size:.1f}" height="{size:.1f}" preserveAspectRatio="{align} meet" '
         f'role="img" aria-label="{_escape(alt)}" />'
     )
 
 
 def _portrait_size(player: str) -> float:
     if player in {"Laura Santa Cruz", "Andrea Petrus"}:
-        return 60
+        return 50
     return 42
 
 
@@ -218,7 +218,7 @@ def _render_average_chart(series: list[AverageScoreSeries]) -> str:
         portrait_url = _portrait_url(entry.player)
         if portrait_url:
             size = _portrait_size(entry.player)
-            pieces.append(_portrait_image(portrait_url, 24, y - 6, size, f"Portrait of {entry.player}"))
+            pieces.append(_portrait_image(portrait_url, 24, y - 6, size, f"Portrait of {entry.player}", "xMinYMid"))
         pieces.append(f'<text x="84" y="{y + 20}" fill="#111827" font-size="14">{_escape(entry.player)}</text>')
         pieces.append(f'<rect x="{left_padding}" y="{y}" width="{bar_width:.1f}" height="{bar_height}" rx="12" fill="{entry.color}" />')
         pieces.append(f'<text x="{left_padding + bar_width + 10:.1f}" y="{y + 20}" fill="#111827" font-size="14">{int(round(entry.average_score))}</text>')

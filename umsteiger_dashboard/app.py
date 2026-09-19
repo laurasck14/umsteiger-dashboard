@@ -97,16 +97,16 @@ def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
     ]
     peak_portraits: list[tuple[str, float, float, float, str]] = []
     for entry in series:
-        peak_point = max(
-            (point for point in entry.points if point.score is not None),
-            key=lambda point: point.score,
+        peak_index = max(
+            (index for index, point in enumerate(entry.points) if point.score is not None),
+            key=lambda index: (entry.points[index].score, index),
             default=None,
         )
-        if peak_point is None:
+        if peak_index is None:
             continue
         portrait_url = _portrait_url(entry.player)
         if portrait_url:
-            peak_index = entry.points.index(peak_point)
+            peak_point = entry.points[peak_index]
             peak_portraits.append(
                 (entry.player, x_for_index(peak_index), y_for_score(peak_point.score), _portrait_size(entry.player), portrait_url)
             )
@@ -155,9 +155,9 @@ def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
 
     for entry in series:
         current_segment: list[str] = []
-        peak_point = max(
-            (point for point in entry.points if point.score is not None),
-            key=lambda point: point.score,
+        peak_index = max(
+            (index for index, point in enumerate(entry.points) if point.score is not None),
+            key=lambda index: (entry.points[index].score, index),
             default=None,
         )
         for index, point in enumerate(entry.points):
@@ -174,7 +174,7 @@ def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
             current_segment.append(f"{x:.1f},{y:.1f}")
             pieces.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="5" fill="{entry.color}" />')
 
-            if peak_point is point:
+            if index == peak_index:
                 portrait_url = _portrait_url(entry.player)
                 portrait_position = portrait_positions.get(entry.player)
                 if portrait_url and portrait_position:

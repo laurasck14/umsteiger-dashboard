@@ -70,10 +70,10 @@ def _portrait_size(player: str) -> float:
 
 def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
     width = 980
-    height = 360
+    height = 480
     padding_x = 52
-    padding_top = 68
-    padding_bottom = 54
+    padding_top = 110
+    padding_bottom = 60
     portrait_row_gap = 2
     dates = _dates_for_series(series)
     score_values = [point.score for entry in series for point in entry.points if point.score is not None]
@@ -146,12 +146,16 @@ def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
 
     pieces = [f'<svg viewBox="0 0 {width} {height}" role="img" aria-label="Daily score chart" class="chart">']
     pieces.append(f'<rect x="0" y="0" width="{width}" height="{height}" rx="24" fill="#ffffff" stroke="#e5e7eb" />')
-    pieces.append(f'<line x1="{padding_x}" y1="{padding_top + inner_height}" x2="{padding_x + inner_width}" y2="{padding_top + inner_height}" stroke="#cbd5e1" stroke-width="2" />')
+    for tick in range(0, 501, 100):
+        tick_y = y_for_score(tick)
+        pieces.append(f'<line x1="{padding_x}" y1="{tick_y:.1f}" x2="{padding_x + inner_width}" y2="{tick_y:.1f}" stroke="#e2e8f0" stroke-width="1" />')
+        pieces.append(f'<text x="44" y="{tick_y + 4:.1f}" fill="#475569" font-size="12" text-anchor="end">{tick}</text>')
     pieces.append(f'<line x1="{padding_x}" y1="{padding_top}" x2="{padding_x}" y2="{padding_top + inner_height}" stroke="#cbd5e1" stroke-width="2" />')
 
     for index, date_value in enumerate(dates):
         x = x_for_index(index)
-        pieces.append(f'<text x="{x:.1f}" y="{height - 18}" fill="#475569" font-size="12" text-anchor="middle">{_escape(date_value[5:])}</text>')
+        display_date = f"{date_value[8:10]}-{date_value[5:7]}"
+        pieces.append(f'<text x="{x:.1f}" y="{height - 18}" fill="#475569" font-size="12" text-anchor="middle">{_escape(display_date)}</text>')
 
     for entry in series:
         current_segment: list[str] = []

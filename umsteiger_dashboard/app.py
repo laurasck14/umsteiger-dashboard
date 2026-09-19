@@ -176,7 +176,12 @@ def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
             x = x_for_index(index)
             y = y_for_score(point.score)
             current_segment.append(f"{x:.1f},{y:.1f}")
-            pieces.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="5" fill="{entry.color}" />')
+            display_date = f"{point.date[8:10]}-{point.date[5:7]}"
+            tooltip = f"{entry.player} - {display_date}: {point.score} points"
+            pieces.append(
+                f'<circle class="daily-datapoint" tabindex="0" cx="{x:.1f}" cy="{y:.1f}" r="5" fill="{entry.color}" data-tooltip="{_escape(tooltip)}">'
+                "</circle>"
+            )
 
             if index == peak_index:
                 portrait_url = _portrait_url(entry.player)
@@ -328,6 +333,8 @@ def _render_page(stored_state, status_message: str | None = None) -> str:
           .panel { padding: 24px; display: grid; gap: 16px; }
           .grid-2 { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
           .chart { width: 100%; height: auto; display: block; }
+          .chart-tooltip { position: fixed; z-index: 10; display: none; pointer-events: none; padding: 14px 18px; border-radius: 10px; background: #1d1d1b; color: #ffffff; font-size: 1rem; font-weight: 700; line-height: 1.4; box-shadow: 0 10px 24px rgba(26, 24, 20, 0.22); transform: translate(10px, 10px); }
+          .chart-tooltip.is-visible { display: block; }
           table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 18px; }
           th, td { padding: 12px 14px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
           th { color: var(--primary); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; }
@@ -391,6 +398,56 @@ def _render_page(stored_state, status_message: str | None = None) -> str:
             parts.append(f" from {_escape(source_name)}")
         parts.append(".</p></section>")
 
+        parts.append("<div id='chart-tooltip' class='chart-tooltip' role='status' aria-live='polite'></div>")
+        parts.append(
+                """
+                <script>
+                    (() => {
+                        const tooltip = document.getElementById('chart-tooltip');
+                        let pinned = false;
+
+                        const showTooltip = (point, event) => {
+                            const bounds = point.getBoundingClientRect();
+                            const clientX = Number.isFinite(event.clientX) ? event.clientX : bounds.left + bounds.width / 2;
+                            const clientY = Number.isFinite(event.clientY) ? event.clientY : bounds.top;
+                            tooltip.textContent = point.dataset.tooltip;
+                            tooltip.style.left = `${clientX}px`;
+                            tooltip.style.top = `${clientY}px`;
+                            tooltip.classList.add('is-visible');
+                        };
+
+                        document.querySelectorAll('.daily-datapoint').forEach((point) => {
+                            point.addEventListener('mouseenter', (event) => showTooltip(point, event));
+                            point.addEventListener('mousemove', (event) => {
+                                if (!pinned) showTooltip(point, event);
+                            });
+                            point.addEventListener('mouseleave', () => {
+                                if (!pinned) tooltip.classList.remove('is-visible');
+                            });
+                            point.addEventListener('click', (event) => {
+                                event.stopPropagation();
+                                pinned = !pinned;
+                                if (pinned) showTooltip(point, event);
+                                else tooltip.classList.remove('is-visible');
+                            });
+                            point.addEventListener('keydown', (event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    pinned = !pinned;
+                                    if (pinned) showTooltip(point, event);
+                                    else tooltip.classList.remove('is-visible');
+                                }
+                            });
+                        });
+
+                        document.addEventListener('click', () => {
+                            pinned = false;
+                            tooltip.classList.remove('is-visible');
+                        });
+                    })();
+                </script>
+                """
+        )
     parts.append("</div></body></html>")
     return "".join(parts)
 

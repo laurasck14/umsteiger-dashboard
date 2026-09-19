@@ -62,13 +62,18 @@ def _portrait_image(url: str, x: float, y: float, size: float, alt: str) -> str:
     )
 
 
+def _portrait_size(player: str) -> float:
+    if player in {"Laura Santa Cruz", "Andrea Petrus"}:
+        return 60
+    return 42
+
+
 def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
     width = 980
     height = 360
     padding_x = 52
     padding_top = 68
     padding_bottom = 54
-    portrait_size = 42
     portrait_row_gap = 2
     dates = _dates_for_series(series)
     score_values = [point.score for entry in series for point in entry.points if point.score is not None]
@@ -90,7 +95,7 @@ def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
         for index, point in enumerate(entry.points)
         if point.score is not None
     ]
-    peak_portraits: list[tuple[str, float, float, str]] = []
+    peak_portraits: list[tuple[str, float, float, float, str]] = []
     for entry in series:
         peak_point = max(
             (point for point in entry.points if point.score is not None),
@@ -103,23 +108,22 @@ def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
         if portrait_url:
             peak_index = entry.points.index(peak_point)
             peak_portraits.append(
-                (entry.player, x_for_index(peak_index), y_for_score(peak_point.score), portrait_url)
+                (entry.player, x_for_index(peak_index), y_for_score(peak_point.score), _portrait_size(entry.player), portrait_url)
             )
 
     portrait_positions: dict[str, tuple[float, float]] = {}
     placed_boxes: list[tuple[float, float, float, float]] = []
-    collision_inset = portrait_size * 0.3
     horizontal_offsets = [0, -20, 20, -40, 40]
-    for player, point_x, point_y, _ in peak_portraits:
+    for player, point_x, point_y, size, _ in peak_portraits:
         for row in range(3):
-            top = point_y - portrait_size - 16 - row * (portrait_size + portrait_row_gap)
+            top = point_y - size - 16 - row * (size + portrait_row_gap)
             for offset in horizontal_offsets:
-                left = max(padding_x, min(width - padding_x - portrait_size, point_x - portrait_size / 2 + offset))
+                left = max(padding_x, min(width - padding_x - size, point_x - size / 2 + offset))
                 candidate = (
-                    left + collision_inset,
-                    top + collision_inset,
-                    left + portrait_size - collision_inset,
-                    top + portrait_size - collision_inset,
+                    left + size * 0.3,
+                    top + size * 0.3,
+                    left + size - size * 0.3,
+                    top + size - size * 0.3,
                 )
                 overlaps = any(
                     candidate[0] < box[2]
@@ -179,7 +183,7 @@ def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
                             portrait_url,
                             portrait_position[0],
                             portrait_position[1],
-                            portrait_size,
+                            _portrait_size(entry.player),
                             f"Portrait of {entry.player}",
                         )
                     )
@@ -213,8 +217,9 @@ def _render_average_chart(series: list[AverageScoreSeries]) -> str:
         bar_width = (entry.average_score / max_value) * usable_width
         portrait_url = _portrait_url(entry.player)
         if portrait_url:
-            pieces.append(_portrait_image(portrait_url, 24, y - 6, 42, f"Portrait of {entry.player}"))
-        pieces.append(f'<text x="78" y="{y + 20}" fill="#111827" font-size="14">{_escape(entry.player)}</text>')
+            size = _portrait_size(entry.player)
+            pieces.append(_portrait_image(portrait_url, 24, y - 6, size, f"Portrait of {entry.player}"))
+        pieces.append(f'<text x="84" y="{y + 20}" fill="#111827" font-size="14">{_escape(entry.player)}</text>')
         pieces.append(f'<rect x="{left_padding}" y="{y}" width="{bar_width:.1f}" height="{bar_height}" rx="12" fill="{entry.color}" />')
         pieces.append(f'<text x="{left_padding + bar_width + 10:.1f}" y="{y + 20}" fill="#111827" font-size="14">{int(round(entry.average_score))}</text>')
 

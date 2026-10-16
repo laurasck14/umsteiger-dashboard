@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import argparse
+import base64
 import cgi
 import html
 import io
 import json
+import mimetypes
 from dataclasses import asdict
 from datetime import datetime, timezone
 from http import HTTPStatus
@@ -66,6 +69,21 @@ def _portrait_size(player: str) -> float:
     if player in {"Laura Santa Cruz", "Andrea Petrus"}:
         return 50
     return 42
+
+
+def _embed_assets(page: str) -> str:
+    assets_path = Path(__file__).resolve().parent.parent / "assets"
+    for asset_path in assets_path.iterdir():
+        if not asset_path.is_file():
+            continue
+        asset_reference = f"/assets/{quote(asset_path.name)}"
+        if asset_reference not in page:
+            continue
+        mime_type = mimetypes.guess_type(asset_path.name)[0] or "application/octet-stream"
+        encoded = base64.b64encode(asset_path.read_bytes()).decode("ascii")
+        data_url = f"data:{mime_type};base64,{encoded}"
+        page = page.replace(asset_reference, data_url)
+    return page
 
 
 def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
@@ -407,16 +425,10 @@ def _render_page(stored_state, status_message: str | None = None) -> str:
         parts.append("<section class='panel' style='margin-top: 20px;'><h2>Daily scores</h2><p class='muted'>Upload a WhatsApp export or a previously exported CSV/JSON backup to populate the dashboard.</p></section>")
 
     parts.append("<div class='toolbar' style='margin-top: 20px;'>")
-    parts.append("<div class='uploader'>")
-    parts.append("<form action='/upload' method='post' enctype='multipart/form-data'>")
-    parts.append("<label><strong>Import WhatsApp TXT, CSV, or JSON</strong><br><span class='muted'>TXT files are parsed as exports, CSV and JSON files are treated as saved dashboard backups.</span></label>")
-    parts.append("<input type='file' name='upload_file' accept='.txt,.csv,.json' required />")
-    parts.append("<button type='submit'>Import file</button>")
-    parts.append("</form></div>")
     parts.append("<div class='links'>")
     parts.append("<a class='download' href='/export.csv'>Download CSV</a>")
     parts.append("<a class='download' href='/export.json'>Download JSON</a>")
-    parts.append(f"<div class='tag'>Local state file: {_escape(STATE_PATH.name)}</div>")
+    parts.append("<a class='download' href='/export.html'>Download offline HTML</a>")
     parts.append("</div></div>")
 
     if imported_at:
@@ -477,6 +489,15 @@ def _render_page(stored_state, status_message: str | None = None) -> str:
         )
     parts.append("</div></body></html>")
     return "".join(parts)
+
+
+def render_offline_html(stored_state) -> str:
+    return _embed_assets(_render_page(stored_state))
+
+
+def export_offline_html(path: Path = Path("umsteiger-dashboard.html")) -> Path:
+    path.write_text(render_offline_html(_load_current_state()), encoding="utf-8")
+    return path
 
 
 def _load_current_state():
@@ -578,6 +599,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             _handle_export(self, export_records_to_json(records), "umsteiger-scores.json", "application/json; charset=utf-8")
             return
 
+        if parsed_url.path == "/export.html":
+            _handle_export(self, render_offline_html(current_state), "umsteiger-dashboard.html", "text/html; charset=utf-8")
+            return
+
         html_body = _render_page(current_state)
         encoded = html_body.encode("utf-8")
         self.send_response(HTTPStatus.OK)
@@ -598,7 +623,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
         return
 
 
-def main(host: str = "127.0.0.1", port: int = 8000) -> None:
+def main(host: str = "127.0.0.1", port: int = 8000, argv: list[str] | None = None) -> None:
+    if argv is not None:
+        parser = argparse.ArgumentParser(description="Run or export the Umsteiger dashboard")
+        parser.add_argument("--export-html", metavar="PATH", help="write a self-contained offline HTML dashboard")
+        args = parser.parse_args(argv)
+        if args.export_html:
+            output_path = export_offline_html(Path(args.export_html))
+            print(f"Wrote offline dashboard to {output_path}")
+            return
+
     server = ThreadingHTTPServer((host, port), DashboardHandler)
     print(f"Serving Umsteiger Dashboard on http://{host}:{port}")
     try:

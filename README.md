@@ -21,6 +21,14 @@ python3 app.py
 
 3. Upload a WhatsApp `.txt` export, or a previously exported `.csv` or `.json` backup.
 
+To create a dashboard that can be opened without the server, run:
+
+```bash
+python3 app.py --export-html umsteiger-dashboard.html
+```
+
+The generated HTML contains the charts, JavaScript, and local images, so it can be opened directly in a browser or shared as one file. While the server is running, use **Download offline HTML** for the same export.
+
 ## Run Tests
 
 ```bash

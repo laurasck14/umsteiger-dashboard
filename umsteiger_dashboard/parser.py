@@ -13,7 +13,6 @@ SYSTEM_LINE_PATTERN = re.compile(
     r"^(?P<date>\d{1,2}[./]\d{1,2}[./]\d{2,4}),\s*(?P<time>\d{1,2}:\d{2})\s*-\s*(?P<message>.*)$"
 )
 SCORE_PATTERN = re.compile(r"(?P<score>\d{1,3})\s*/\s*(?P<max_score>\d{1,3})")
-PLAIN_SCORE_PATTERN = re.compile(r"^\d{1,3}$")
 
 
 @dataclass
@@ -41,12 +40,6 @@ def _extract_score(message: str) -> tuple[int | None, int | None, str]:
         return (None, None, "missing")
 
     if re.search(r"\d{1,2}[./]\d{1,2}[./]\d{2,4}", trimmed):
-        return (None, None, "missing")
-
-    if PLAIN_SCORE_PATTERN.fullmatch(trimmed) is not None:
-        score = int(trimmed)
-        if 0 <= score <= 500:
-            return (score, None, "parsed")
         return (None, None, "missing")
 
     if "umsteigen.app" not in trimmed.lower():

@@ -4,7 +4,7 @@ from umsteiger_dashboard.parser import parse_whatsapp_export
 
 
 class ParserTests(unittest.TestCase):
-    def test_parse_whatsapp_export_handles_plain_and_formatted_scores(self) -> None:
+    def test_parse_whatsapp_export_only_handles_formatted_scores(self) -> None:
         result = parse_whatsapp_export(
             """
 19.09.2026, 09:01 - Anna: 452
@@ -12,14 +12,12 @@ class ParserTests(unittest.TestCase):
             """.strip()
         )
 
-        self.assertEqual(len(result.records), 2)
+        self.assertEqual(len(result.records), 1)
         self.assertEqual(result.records[0].date, "2026-09-19")
-        self.assertEqual(result.records[0].player, "Anna")
-        self.assertEqual(result.records[0].score, 452)
-        self.assertEqual(result.records[1].player, "Ben")
-        self.assertEqual(result.records[1].score, 390)
-        self.assertEqual(result.records[1].max_score, 500)
-        self.assertEqual(result.players, ["Anna", "Ben"])
+        self.assertEqual(result.records[0].player, "Ben")
+        self.assertEqual(result.records[0].score, 390)
+        self.assertEqual(result.records[0].max_score, 500)
+        self.assertEqual(result.players, ["Ben"])
 
     def test_parse_whatsapp_export_ignores_non_score_chatter(self) -> None:
         result = parse_whatsapp_export(
@@ -35,8 +33,8 @@ class ParserTests(unittest.TestCase):
     def test_parse_whatsapp_export_rejects_out_of_range_scores(self) -> None:
         result = parse_whatsapp_export(
             """
-19.09.2026, 09:01 - Anna: 501
-19.09.2026, 09:02 - Ben: 0
+19.09.2026, 09:01 - Anna: umsteigen.app · Berlin 🚇 501 / 500 · Daily commuter
+19.09.2026, 09:02 - Ben: umsteigen.app · Berlin 🚇 0 / 500 · First-time rider
             """.strip()
         )
 
@@ -47,8 +45,8 @@ class ParserTests(unittest.TestCase):
     def test_parse_whatsapp_export_marks_duplicate_scores(self) -> None:
         result = parse_whatsapp_export(
             """
-19.09.2026, 09:01 - Anna: 400
-19.09.2026, 09:02 - Anna: 450
+            19.09.2026, 09:01 - Anna: umsteigen.app · Berlin 🚇 400 / 500 · Daily commuter
+19.09.2026, 09:02 - Anna: umsteigen.app · Berlin 🚇 450 / 500 · Daily commuter
             """.strip()
         )
 
@@ -62,11 +60,11 @@ class ParserTests(unittest.TestCase):
 13/9/26, 8:10 - Cambiaste la descripción del grupo
 17/9/26, 14:09 - Salvatore Lauricella: <Multimedia omitido>
 17/9/26, 14:10 - Añadiste a Antonio Robert.
-19.09.2026, 09:01 - Anna: 452
+            19.09.2026, 09:01 - Anna: 452
 19.09.2026, 09:02 - Ben: umsteigen.app · Berlin 🚇 19. Sept. 390 / 500 · Umsteige-Profi 🟢–🟡–🟢–🟢–🟢
             """.strip()
         )
 
-        self.assertEqual(len(result.records), 2)
-        self.assertEqual([record.player for record in result.records], ["Anna", "Ben"])
-        self.assertEqual([record.score for record in result.records], [452, 390])
+        self.assertEqual(len(result.records), 1)
+        self.assertEqual([record.player for record in result.records], ["Ben"])
+        self.assertEqual([record.score for record in result.records], [390])

@@ -40,9 +40,7 @@ The parser expects WhatsApp `.txt` exports with lines like:
 19.09.2026, 09:02 - Ben: umsteigen.app · Berlin 🚇 19. Sept. 390 / 500 · Umsteige-Profi 🟢–🟡–🟢–🟢–🟢
 ```
 
-It also supports simple score-only messages like `452`.
-
-Only numeric score messages between 0 and 500 are treated as valid plain score entries.
+Only messages containing the app's formatted score, such as `390 / 500`, are treated as valid score entries. Bare numeric messages like `452` are ignored.
 
 ## Player Portraits
 

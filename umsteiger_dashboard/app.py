@@ -189,7 +189,7 @@ def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
         display_date = f"{date_value[8:10]}-{date_value[5:7]}"
         pieces.append(
             f'<text class="daily-date-label" data-date="{_escape(date_value)}" data-index="{index}" '
-            f'style="display:{"" if index % 15 == 0 else "none"}" '
+            f'style="display:{"" if index % 3 == 0 else "none"}" '
             f'x="{x:.1f}" y="{height - 18}" fill="#475569" font-size="12" text-anchor="middle">{_escape(display_date)}</text>'
         )
 
@@ -561,7 +561,7 @@ def _render_page(stored_state, status_message: str | None = None) -> str:
                                 const visibleIndex = visibleDates.indexOf(label.dataset.date);
                                 const x = datePositions.get(label.dataset.date);
                                 const showEveryDate = visibleDates.length <= 7;
-                                label.style.display = visibleIndex >= 0 && (showEveryDate || visibleIndex % 15 === 0) ? '' : 'none';
+                                label.style.display = visibleIndex >= 0 && (showEveryDate || visibleIndex % 3 === 0) ? '' : 'none';
                                 if (x !== undefined) label.setAttribute('x', x.toFixed(1));
                             });
                             portraits.forEach((portrait) => {

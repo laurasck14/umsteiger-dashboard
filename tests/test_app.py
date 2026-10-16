@@ -5,12 +5,12 @@ from umsteiger_dashboard.models import DailyPoint, DailyScoreSeries, ScoreRecord
 
 
 class AppRenderingTests(unittest.TestCase):
-    def test_daily_chart_labels_every_fifteenth_date_and_exposes_filters(self) -> None:
+    def test_daily_chart_labels_every_third_date_and_exposes_filters(self) -> None:
         points = [DailyPoint(date=f"2026-09-{day:02d}", score=day * 10) for day in range(1, 17)]
         chart = _render_daily_chart([DailyScoreSeries(player="Laura", color="#007A5B", points=points)])
 
         self.assertEqual(chart.count("class=\"daily-date-label\""), 16)
-        self.assertEqual(chart.count('style="display:"'), 2)
+        self.assertEqual(chart.count('style="display:"'), 6)
         self.assertIn('data-date="2026-09-01"', chart)
         self.assertIn('data-date="2026-09-16"', chart)
         self.assertIn('data-score="10"', chart)

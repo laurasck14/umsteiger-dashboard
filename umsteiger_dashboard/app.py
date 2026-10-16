@@ -85,6 +85,14 @@ def _portrait_size(player: str) -> float:
     return 42
 
 
+def _latest_peak_index(entry: DailyScoreSeries) -> int | None:
+    scored_points = [(index, point) for index, point in enumerate(entry.points) if point.score is not None]
+    if not scored_points:
+        return None
+    highest_score = max(point.score for _, point in scored_points)
+    return max(index for index, point in scored_points if point.score == highest_score)
+
+
 def _embed_assets(page: str) -> str:
     assets_path = Path(__file__).resolve().parent.parent / "assets"
     for asset_path in assets_path.iterdir():
@@ -129,11 +137,7 @@ def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
     ]
     peak_portraits: list[tuple[str, float, float, float, str]] = []
     for entry in series:
-        peak_index = max(
-            (index for index, point in enumerate(entry.points) if point.score is not None),
-            key=lambda index: (entry.points[index].score, index),
-            default=None,
-        )
+        peak_index = _latest_peak_index(entry)
         if peak_index is None:
             continue
         portrait_url = _portrait_url(entry.player)
@@ -147,9 +151,9 @@ def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
     placed_boxes: list[tuple[float, float, float, float]] = []
     horizontal_offsets = [0, -20, 20, -40, 40]
     for player, point_x, point_y, size, _ in peak_portraits:
-        for row in range(3):
-            top = point_y - size - 16 - row * (size + portrait_row_gap)
-            for offset in horizontal_offsets:
+        for offset in horizontal_offsets:
+            for row in range(3):
+                top = point_y - size - 16 - row * (size + portrait_row_gap)
                 left = max(padding_x, min(width - padding_x - size, point_x - size / 2 + offset))
                 candidate = (
                     left + size * 0.3,
@@ -194,11 +198,7 @@ def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
         )
 
     for entry in series:
-        peak_index = max(
-            (index for index, point in enumerate(entry.points) if point.score is not None),
-            key=lambda index: (entry.points[index].score, index),
-            default=None,
-        )
+        peak_index = _latest_peak_index(entry)
         previous_index: int | None = None
         for index, point in enumerate(entry.points):
             if point.score is None:
@@ -564,19 +564,23 @@ def _render_page(stored_state, status_message: str | None = None) -> str:
                                 label.style.display = visibleIndex >= 0 && (showEveryDate || visibleIndex % 3 === 0) ? '' : 'none';
                                 if (x !== undefined) label.setAttribute('x', x.toFixed(1));
                             });
+                            const portraitRows = new Map();
                             portraits.forEach((portrait) => {
                                 const playerPoints = points.filter((point) => selectedPlayers.has(point.dataset.player)
                                     && point.dataset.player === portrait.dataset.player
                                     && selectedDays.has(point.dataset.date));
                                 const peakPoint = playerPoints.reduce((peak, point) => {
-                                    if (!peak || Number(point.dataset.score) > Number(peak.dataset.score)) return point;
+                                    if (!peak || Number(point.dataset.score) >= Number(peak.dataset.score)) return point;
                                     return peak;
                                 }, null);
                                 portrait.style.display = peakPoint ? '' : 'none';
                                 if (peakPoint) {
                                     const size = Number(portrait.getAttribute('width'));
+                                    const anchorKey = `${peakPoint.getAttribute('cx')}:${peakPoint.getAttribute('cy')}`;
+                                    const row = portraitRows.get(anchorKey) || 0;
+                                    portraitRows.set(anchorKey, row + 1);
                                     portrait.setAttribute('x', (Number(peakPoint.getAttribute('cx')) - size / 2).toFixed(1));
-                                    portrait.setAttribute('y', (Number(peakPoint.getAttribute('cy')) - size - 16).toFixed(1));
+                                    portrait.setAttribute('y', (Number(peakPoint.getAttribute('cy')) - size - 16 - row * (size + 2)).toFixed(1));
                                 }
                             });
                         };

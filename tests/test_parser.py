@@ -30,6 +30,18 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(result.records, [])
         self.assertEqual(result.warnings, [])
 
+    def test_parse_whatsapp_export_keeps_score_with_trailing_chat(self) -> None:
+        result = parse_whatsapp_export(
+            """
+14.10.2026, 09:01 - Anna: umsteigen.app · Berlin 🚇 331 / 500 · Daily commuter
+I am out from this fight today 🤣
+            """.strip(),
+        )
+
+        self.assertEqual(len(result.records), 1)
+        self.assertEqual(result.records[0].score, 331)
+        self.assertEqual(result.records[0].max_score, 500)
+
     def test_parse_whatsapp_export_rejects_out_of_range_scores(self) -> None:
         result = parse_whatsapp_export(
             """

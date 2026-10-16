@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Iterable
 from urllib.parse import quote, urlparse
 
-from .charting import build_average_score_series, build_daily_score_series
-from .models import AverageScoreSeries, DailyScoreSeries, ParseWarning, ScoreRecord
+from .charting import build_average_score_series, build_daily_score_series, build_win_counts
+from .models import AverageScoreSeries, DailyScoreSeries, ParseWarning, ScoreRecord, WinCount
 from .parser import parse_whatsapp_export
 from .storage import (
     STATE_PATH,
@@ -236,6 +236,24 @@ def _render_average_chart(series: list[AverageScoreSeries]) -> str:
     return "".join(pieces)
 
 
+def _render_win_counts(win_counts: list[WinCount]) -> str:
+    table = ["<table>", "<thead><tr><th>Player</th><th>Wins</th></tr></thead><tbody>"]
+    for entry in win_counts:
+        portrait_url = _portrait_url(entry.player)
+        portrait = ""
+        if portrait_url:
+            portrait = (
+                f'<img class="win-portrait" src="{_escape(portrait_url)}" '
+                f'alt="Portrait of {_escape(entry.player)}" />'
+            )
+        table.append(
+            f'<tr><td><div class="win-player">{portrait}'
+            f'<span>{_escape(entry.player)}</span></div></td><td>{entry.wins}</td></tr>'
+        )
+    table.append("</tbody></table>")
+    return "".join(table)
+
+
 def _render_table(headers: list[str], rows: list[list[object]]) -> str:
     table = ["<table>", "<thead><tr>"]
     for header in headers:
@@ -273,6 +291,7 @@ def _render_page(stored_state, status_message: str | None = None) -> str:
     imported_at = stored_state.imported_at if stored_state else ""
     daily_series = build_daily_score_series(records)
     average_series = build_average_score_series(records)
+    win_counts = build_win_counts(records)
 
     parts = ["<!doctype html>", "<html lang='en'>", "<head>"]
     parts.append('<meta charset="utf-8" />')
@@ -339,6 +358,8 @@ def _render_page(stored_state, status_message: str | None = None) -> str:
           th, td { padding: 12px 14px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
           th { color: var(--primary); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; }
           td { color: var(--text); }
+          .win-player { display: flex; align-items: center; gap: 12px; min-height: 50px; }
+          .win-portrait { width: 42px; height: 42px; object-fit: contain; }
           .tag { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: rgba(13, 43, 69, 0.05); color: var(--primary); font-weight: 700; }
           .warning-list { overflow-x: auto; }
           .footer { color: var(--muted); font-size: 0.92rem; }
@@ -375,6 +396,12 @@ def _render_page(stored_state, status_message: str | None = None) -> str:
         parts.append("<section class='panel' style='margin-top: 20px;'>")
         parts.append("<h2>Average score over time</h2>")
         parts.append(_render_average_chart(average_series))
+        parts.append("</section>")
+
+        parts.append("<section class='panel' style='margin-top: 20px;'>")
+        parts.append("<h2>Wins per player</h2>")
+        parts.append("<p class='muted'>Each player with the highest score on a day receives one win. Ties count as a win for every tied player.</p>")
+        parts.append(_render_win_counts(win_counts))
         parts.append("</section>")
     else:
         parts.append("<section class='panel' style='margin-top: 20px;'><h2>Daily scores</h2><p class='muted'>Upload a WhatsApp export or a previously exported CSV/JSON backup to populate the dashboard.</p></section>")

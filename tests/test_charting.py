@@ -1,6 +1,6 @@
 import unittest
 
-from umsteiger_dashboard.charting import build_average_score_series, build_daily_score_series
+from umsteiger_dashboard.charting import build_average_score_series, build_daily_score_series, build_win_counts
 from umsteiger_dashboard.models import ScoreRecord
 
 
@@ -41,3 +41,18 @@ class ChartingTests(unittest.TestCase):
 
         self.assertEqual([entry.player for entry in series], ["Ben", "Anna", "Cara"])
         self.assertEqual([entry.average_score for entry in series], [275, 150, 50])
+
+    def test_build_win_counts_awards_tied_winners_and_ranks_by_wins(self) -> None:
+        records = [
+            ScoreRecord(id="1", date="2026-09-18", player="Anna", score=400, max_score=500, source="x", status="parsed"),
+            ScoreRecord(id="2", date="2026-09-18", player="Ben", score=400, max_score=500, source="y", status="parsed"),
+            ScoreRecord(id="3", date="2026-09-18", player="Cara", score=300, max_score=500, source="z", status="parsed"),
+            ScoreRecord(id="4", date="2026-09-19", player="Anna", score=450, max_score=500, source="x", status="parsed"),
+            ScoreRecord(id="5", date="2026-09-19", player="Ben", score=350, max_score=500, source="y", status="parsed"),
+            ScoreRecord(id="6", date="2026-09-19", player="Cara", score=450, max_score=500, source="z", status="parsed"),
+            ScoreRecord(id="7", date="2026-09-20", player="Ben", score=500, max_score=500, source="y", status="parsed"),
+        ]
+
+        win_counts = build_win_counts(records)
+
+        self.assertEqual([(entry.player, entry.wins) for entry in win_counts], [("Anna", 2), ("Ben", 2), ("Cara", 1)])

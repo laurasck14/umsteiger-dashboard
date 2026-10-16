@@ -50,3 +50,10 @@ class AverageScoreSeries:
     color: str
     average_score: float
     games_played: int
+
+
+@dataclass(frozen=True)
+class WinCount:
+    player: str
+    color: str
+    wins: int

@@ -6,7 +6,7 @@ What it does:
 - Upload a WhatsApp chat export in `.txt` format.
 - Extract one score row per person per day.
 - Keep the parsed data on your machine in a local JSON state file.
-- Show a daily score chart, an average-score chart, and a table of imported rows.
+- Show a daily score chart, an average-score chart, daily win totals, and a table of imported rows.
 - Export the normalized data as CSV or JSON.
 
 ## Run It
@@ -41,6 +41,8 @@ The parser expects WhatsApp `.txt` exports with lines like:
 ```
 
 Only messages containing the app's formatted score, such as `390 / 500`, are treated as valid score entries. Bare numeric messages like `452` are ignored.
+
+Daily wins are counted by comparing the highest score for each date. Every player tied for the highest score receives one win.
 
 ## Player Portraits
 

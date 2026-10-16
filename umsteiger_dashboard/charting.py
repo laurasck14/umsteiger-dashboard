@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from .models import AverageScoreSeries, DailyPoint, DailyScoreSeries, ScoreRecord
+from .models import AverageScoreSeries, DailyPoint, DailyScoreSeries, ScoreRecord, WinCount
 
 COLORS = ["#2563eb", "#f97316", "#22c55e", "#a855f7", "#ef4444", "#14b8a6"]
 PLAYER_COLORS = {
@@ -57,3 +57,25 @@ def build_average_score_series(records: list[ScoreRecord]) -> list[AverageScoreS
         )
 
     return series
+
+
+def build_win_counts(records: list[ScoreRecord]) -> list[WinCount]:
+    scores_by_date: dict[str, dict[str, int]] = defaultdict(dict)
+    for record in records:
+        if record.score is not None:
+            scores_by_date[record.date][record.player] = record.score
+
+    wins_by_player: dict[str, int] = defaultdict(int)
+    for scores_by_player in scores_by_date.values():
+        if not scores_by_player:
+            continue
+        highest_score = max(scores_by_player.values())
+        for player, score in scores_by_player.items():
+            if score == highest_score:
+                wins_by_player[player] += 1
+
+    ranked_players = sorted(wins_by_player, key=lambda player: (-wins_by_player[player], player))
+    return [
+        WinCount(player=player, color=_color_for_player(player, index), wins=wins_by_player[player])
+        for index, player in enumerate(ranked_players)
+    ]

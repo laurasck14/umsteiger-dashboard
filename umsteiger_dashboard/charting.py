@@ -11,6 +11,7 @@ PLAYER_COLORS = {
     "Laura Santa Cruz": "#007A5B",
     "Rajas Sane": "#F0D722",
     "Andrea Petrus": "#7E5330",
+    "Franci Giacco": "#6C4675",
 }
 
 

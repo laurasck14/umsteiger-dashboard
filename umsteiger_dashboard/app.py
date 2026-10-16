@@ -57,11 +57,25 @@ def _portrait_url(player: str) -> str | None:
     return None
 
 
-def _portrait_image(url: str, x: float, y: float, size: float, alt: str, align: str = "xMidYMid") -> str:
+def _portrait_image(
+    url: str,
+    x: float,
+    y: float,
+    size: float,
+    alt: str,
+    align: str = "xMidYMid",
+    class_name: str | None = None,
+    data_player: str | None = None,
+) -> str:
+    extra_attributes = ""
+    if class_name:
+        extra_attributes += f' class="{_escape(class_name)}"'
+    if data_player:
+        extra_attributes += f' data-player="{_escape(data_player)}"'
     return (
         f'<image href="{_escape(url)}" x="{x:.1f}" y="{y:.1f}" '
         f'width="{size:.1f}" height="{size:.1f}" preserveAspectRatio="{align} meet" '
-        f'role="img" aria-label="{_escape(alt)}" />'
+        f'role="img" aria-label="{_escape(alt)}"{extra_attributes} />'
     )
 
 
@@ -173,33 +187,45 @@ def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
     for index, date_value in enumerate(dates):
         x = x_for_index(index)
         display_date = f"{date_value[8:10]}-{date_value[5:7]}"
-        pieces.append(f'<text x="{x:.1f}" y="{height - 18}" fill="#475569" font-size="12" text-anchor="middle">{_escape(display_date)}</text>')
+        pieces.append(
+            f'<text class="daily-date-label" data-date="{_escape(date_value)}" data-index="{index}" '
+            f'style="display:{"" if index % 15 == 0 else "none"}" '
+            f'x="{x:.1f}" y="{height - 18}" fill="#475569" font-size="12" text-anchor="middle">{_escape(display_date)}</text>'
+        )
 
     for entry in series:
-        current_segment: list[str] = []
         peak_index = max(
             (index for index, point in enumerate(entry.points) if point.score is not None),
             key=lambda index: (entry.points[index].score, index),
             default=None,
         )
+        previous_index: int | None = None
         for index, point in enumerate(entry.points):
             if point.score is None:
-                if current_segment:
-                    pieces.append(
-                        f'<polyline fill="none" points="{" ".join(current_segment)}" stroke="{entry.color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />'
-                    )
-                    current_segment = []
+                previous_index = None
                 continue
 
             x = x_for_index(index)
             y = y_for_score(point.score)
-            current_segment.append(f"{x:.1f},{y:.1f}")
             display_date = f"{point.date[8:10]}-{point.date[5:7]}"
             tooltip = f"{entry.player} - {display_date}: {point.score} points"
             pieces.append(
-                f'<circle class="daily-datapoint" tabindex="0" cx="{x:.1f}" cy="{y:.1f}" r="5" fill="{entry.color}" data-tooltip="{_escape(tooltip)}">'
+                f'<circle class="daily-datapoint" data-player="{_escape(entry.player)}" data-date="{_escape(point.date)}" '
+                f'data-score="{point.score}" tabindex="0" cx="{x:.1f}" cy="{y:.1f}" r="5" '
+                f'fill="{entry.color}" data-tooltip="{_escape(tooltip)}">'
                 "</circle>"
             )
+
+            if previous_index == index - 1:
+                previous_point = entry.points[previous_index]
+                previous_x = x_for_index(previous_index)
+                previous_y = y_for_score(previous_point.score)
+                pieces.append(
+                    f'<line class="daily-series-segment" data-player="{_escape(entry.player)}" '
+                    f'data-start-date="{_escape(previous_point.date)}" data-end-date="{_escape(point.date)}" '
+                    f'x1="{previous_x:.1f}" y1="{previous_y:.1f}" x2="{x:.1f}" y2="{y:.1f}" '
+                    f'stroke="{entry.color}" stroke-width="3" stroke-linecap="round" />'
+                )
 
             if index == peak_index:
                 portrait_url = _portrait_url(entry.player)
@@ -212,13 +238,12 @@ def _render_daily_chart(series: list[DailyScoreSeries]) -> str:
                             portrait_position[1],
                             _portrait_size(entry.player),
                             f"Portrait of {entry.player}",
+                            class_name="daily-portrait",
+                            data_player=entry.player,
                         )
                     )
 
-        if current_segment:
-            pieces.append(
-                f'<polyline fill="none" points="{" ".join(current_segment)}" stroke="{entry.color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />'
-            )
+            previous_index = index
 
     pieces.append("</svg>")
     return "".join(pieces)
@@ -372,6 +397,14 @@ def _render_page(stored_state, status_message: str | None = None) -> str:
           .chart { width: 100%; height: auto; display: block; }
           .chart-tooltip { position: fixed; z-index: 10; display: none; pointer-events: none; padding: 14px 18px; border-radius: 10px; background: #1d1d1b; color: #ffffff; font-size: 1rem; font-weight: 700; line-height: 1.4; box-shadow: 0 10px 24px rgba(26, 24, 20, 0.22); transform: translate(10px, 10px); }
           .chart-tooltip.is-visible { display: block; }
+          .daily-controls { display: grid; gap: 14px; padding: 16px; border: 1px solid var(--border); border-radius: 18px; background: #fffdf9; }
+          .daily-controls-row { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; }
+          .daily-controls label { color: var(--text); font-weight: 700; }
+          .daily-timeframe { width: auto; min-width: 150px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); background: #ffffff; color: var(--text); font: inherit; }
+          .daily-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+          .daily-player { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }
+          .daily-player input { accent-color: var(--primary); }
+          .daily-swatch { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
           table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 18px; }
           th, td { padding: 12px 14px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
           th { color: var(--primary); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; }
@@ -408,11 +441,22 @@ def _render_page(stored_state, status_message: str | None = None) -> str:
     if records:
         parts.append("<section class='panel' style='margin-top: 20px;'>")
         parts.append("<h2>Daily scores</h2>")
+        parts.append("<p class='muted'>Scores by player for each day. Faces mark each player's highest score in the selected timeframe.</p>")
+        parts.append("<div class='daily-controls' aria-label='Daily score filters'>")
+        parts.append("<div class='daily-controls-row'><label for='daily-timeframe'>Timeframe</label><select id='daily-timeframe' class='daily-timeframe'><option value='all'>All time</option><option value='7'>Last week</option><option value='30'>Last month</option></select></div>")
+        parts.append("<div class='daily-legend' aria-label='Players'>")
+        for entry in daily_series:
+            parts.append(
+                f"<label class='daily-player'><input type='checkbox' value='{_escape(entry.player)}' checked />"
+                f"<span class='daily-swatch' style='background:{_escape(entry.color)}'></span>{_escape(entry.player)}</label>"
+            )
+        parts.append("</div></div>")
         parts.append(_render_daily_chart(daily_series))
         parts.append("</section>")
 
         parts.append("<section class='panel' style='margin-top: 20px;'>")
         parts.append("<h2>Average score over time</h2>")
+        parts.append("<p class='muted'>Each player's average score across all recorded games.</p>")
         parts.append(_render_average_chart(average_series))
         parts.append("</section>")
 
@@ -478,6 +522,68 @@ def _render_page(stored_state, status_message: str | None = None) -> str:
                                 }
                             });
                         });
+
+                        const timeframe = document.getElementById('daily-timeframe');
+                        const playerCheckboxes = [...document.querySelectorAll('.daily-player input')];
+                        const dateLabels = [...document.querySelectorAll('.daily-date-label')];
+                        const segments = [...document.querySelectorAll('.daily-series-segment')];
+                        const points = [...document.querySelectorAll('.daily-datapoint')];
+                        const portraits = [...document.querySelectorAll('.daily-portrait')];
+                        const dates = points.map((point) => point.dataset.date).filter((date, index, all) => all.indexOf(date) === index).sort();
+                        const chartPadding = 52;
+                        const chartWidth = 980;
+                        const chartInnerWidth = chartWidth - (chartPadding * 2);
+
+                        const updateDailyChart = () => {
+                            const selectedPlayers = new Set(playerCheckboxes.filter((input) => input.checked).map((input) => input.value));
+                            const selectedDays = timeframe.value === 'all' ? new Set(dates) : (() => {
+                                const latest = new Date(`${dates[dates.length - 1]}T00:00:00`);
+                                const cutoff = new Date(latest);
+                                cutoff.setDate(cutoff.getDate() - Number(timeframe.value) + 1);
+                                return new Set(dates.filter((date) => new Date(`${date}T00:00:00`) >= cutoff));
+                            })();
+                            const visibleDates = dates.filter((date) => selectedDays.has(date));
+                            const datePositions = new Map(visibleDates.map((date, index) => [date, visibleDates.length <= 1 ? chartPadding + chartInnerWidth / 2 : chartPadding + (index / (visibleDates.length - 1)) * chartInnerWidth]));
+
+                            points.forEach((point) => {
+                                const x = datePositions.get(point.dataset.date);
+                                point.style.display = selectedPlayers.has(point.dataset.player) && x !== undefined ? '' : 'none';
+                                if (x !== undefined) point.setAttribute('cx', x.toFixed(1));
+                            });
+                            segments.forEach((segment) => {
+                                const startX = datePositions.get(segment.dataset.startDate);
+                                const endX = datePositions.get(segment.dataset.endDate);
+                                segment.style.display = selectedPlayers.has(segment.dataset.player) && startX !== undefined && endX !== undefined ? '' : 'none';
+                                if (startX !== undefined) segment.setAttribute('x1', startX.toFixed(1));
+                                if (endX !== undefined) segment.setAttribute('x2', endX.toFixed(1));
+                            });
+                            dateLabels.forEach((label) => {
+                                const visibleIndex = visibleDates.indexOf(label.dataset.date);
+                                const x = datePositions.get(label.dataset.date);
+                                const showEveryDate = visibleDates.length <= 7;
+                                label.style.display = visibleIndex >= 0 && (showEveryDate || visibleIndex % 15 === 0) ? '' : 'none';
+                                if (x !== undefined) label.setAttribute('x', x.toFixed(1));
+                            });
+                            portraits.forEach((portrait) => {
+                                const playerPoints = points.filter((point) => selectedPlayers.has(point.dataset.player)
+                                    && point.dataset.player === portrait.dataset.player
+                                    && selectedDays.has(point.dataset.date));
+                                const peakPoint = playerPoints.reduce((peak, point) => {
+                                    if (!peak || Number(point.dataset.score) > Number(peak.dataset.score)) return point;
+                                    return peak;
+                                }, null);
+                                portrait.style.display = peakPoint ? '' : 'none';
+                                if (peakPoint) {
+                                    const size = Number(portrait.getAttribute('width'));
+                                    portrait.setAttribute('x', (Number(peakPoint.getAttribute('cx')) - size / 2).toFixed(1));
+                                    portrait.setAttribute('y', (Number(peakPoint.getAttribute('cy')) - size - 16).toFixed(1));
+                                }
+                            });
+                        };
+
+                        playerCheckboxes.forEach((input) => input.addEventListener('change', updateDailyChart));
+                        timeframe.addEventListener('change', updateDailyChart);
+                        updateDailyChart();
 
                         document.addEventListener('click', () => {
                             pinned = false;

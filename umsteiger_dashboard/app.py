@@ -4,22 +4,18 @@ import argparse
 import base64
 import cgi
 import html
-import io
 import json
 import mimetypes
-from dataclasses import asdict
 from datetime import datetime, timezone
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Iterable
 from urllib.parse import quote, urlparse
 
 from .charting import build_average_score_series, build_daily_score_series, build_win_counts
 from .models import AverageScoreSeries, DailyScoreSeries, ParseWarning, ScoreRecord, WinCount
 from .parser import parse_whatsapp_export
 from .storage import (
-    STATE_PATH,
     export_records_to_csv,
     export_records_to_json,
     import_records_from_csv,
@@ -31,13 +27,6 @@ from .storage import (
 
 def _escape(value: object) -> str:
     return html.escape("" if value is None else str(value), quote=True)
-
-
-def _warning_counts(warnings: Iterable[ParseWarning]) -> dict[str, int]:
-    counts: dict[str, int] = {}
-    for warning in warnings:
-        counts[warning.kind] = counts.get(warning.kind, 0) + 1
-    return counts
 
 
 def _dates_for_series(series: list[DailyScoreSeries]) -> list[str]:
@@ -297,36 +286,6 @@ def _render_win_counts(win_counts: list[WinCount]) -> str:
     return "".join(table)
 
 
-def _render_table(headers: list[str], rows: list[list[object]]) -> str:
-    table = ["<table>", "<thead><tr>"]
-    for header in headers:
-        table.append(f"<th>{_escape(header)}</th>")
-    table.append("</tr></thead><tbody>")
-    for row in rows:
-        table.append("<tr>")
-        for cell in row:
-            table.append(f"<td>{_escape(cell)}</td>")
-        table.append("</tr>")
-    table.append("</tbody></table>")
-    return "".join(table)
-
-
-def _render_metrics(records: list[ScoreRecord], warnings: list[ParseWarning]) -> str:
-    players = sorted({record.player for record in records})
-    dates = sorted({record.date for record in records})
-    values = [
-        ("Score rows", len(records)),
-        ("Players", len(players)),
-        ("Days", len(dates)),
-        ("Warnings", len(warnings)),
-    ]
-    pieces = ['<div class="metrics">']
-    for label, value in values:
-        pieces.append(f'<div class="metric"><span>{_escape(label)}</span><strong>{value}</strong></div>')
-    pieces.append("</div>")
-    return "".join(pieces)
-
-
 def _render_page(stored_state, status_message: str | None = None) -> str:
     records = stored_state.records if stored_state else []
     warnings = stored_state.warnings if stored_state else []
@@ -376,24 +335,13 @@ def _render_page(stored_state, status_message: str | None = None) -> str:
           .hero p { margin: 0; max-width: 60ch; color: var(--muted); line-height: 1.7; font-size: 1.04rem; }
           .hero-visual { position: relative; border-radius: 24px; overflow: hidden; border: 1px solid var(--border); background: linear-gradient(135deg, #f3e6c9 0%, #e9e1d0 100%); width: 100%; max-width: 760px; aspect-ratio: 1264 / 843; display: flex; align-items: stretch; justify-content: center; margin-left: auto; }
           .hero-visual img { width: 100%; height: 100%; object-fit: cover; display: block; background: #f7f3ee; }
-          .hero-badge { position: absolute; right: 16px; bottom: 16px; background: rgba(255,255,255,0.86); border: 1px solid rgba(0,0,0,0.05); color: var(--primary); padding: 10px 14px; border-radius: 12px; font-weight: 800; box-shadow: 0 10px 22px rgba(0,0,0,0.06); }
           .toolbar { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 20px; }
-          .uploader, .links { padding: 18px; border-radius: 18px; background: #ffffff; border: 1px solid var(--border); }
-          .uploader form { display: grid; gap: 12px; }
-          .uploader label { display: block; color: var(--text); font-weight: 700; }
-          .uploader .muted { display: block; margin-top: 6px; }
-          input[type='file'], button, .download { width: 100%; border-radius: 999px; border: 1px solid var(--border); padding: 12px 16px; font: inherit; }
-          input[type='file'] { background: #ffffff; color: var(--text); }
-          button, .download { display: inline-flex; justify-content: center; align-items: center; background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%); color: #1f1b12; font-weight: 800; text-decoration: none; box-shadow: 0 10px 18px rgba(240, 184, 26, 0.18); }
+          .links { padding: 18px; border-radius: 18px; background: #ffffff; border: 1px solid var(--border); }
+          .download { width: 100%; border-radius: 999px; border: 1px solid var(--border); padding: 12px 16px; font: inherit; display: inline-flex; justify-content: center; align-items: center; background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%); color: #1f1b12; font-weight: 800; text-decoration: none; box-shadow: 0 10px 18px rgba(240, 184, 26, 0.18); }
           .links { display: grid; gap: 12px; align-content: start; }
           .status { color: var(--primary); background: rgba(243, 198, 76, 0.12); border: 1px solid rgba(243, 198, 76, 0.35); padding: 12px 16px; border-radius: 14px; }
           .muted { color: var(--muted); }
-          .metrics, .warning-metrics { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-          .metric { padding: 18px; border-radius: 18px; background: #fffdf9; border: 1px solid var(--border); display: grid; gap: 8px; }
-          .metric span { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; }
-          .metric strong { font-size: 1.8rem; font-family: 'Manrope', 'Avenir Next', 'Segoe UI', sans-serif; }
           .panel { padding: 24px; display: grid; gap: 16px; }
-          .grid-2 { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
           .chart { width: 100%; height: auto; display: block; }
           .chart-tooltip { position: fixed; z-index: 10; display: none; pointer-events: none; padding: 14px 18px; border-radius: 10px; background: #1d1d1b; color: #ffffff; font-size: 1rem; font-weight: 700; line-height: 1.4; box-shadow: 0 10px 24px rgba(26, 24, 20, 0.22); transform: translate(10px, 10px); }
           .chart-tooltip.is-visible { display: block; }
@@ -606,12 +554,8 @@ def render_offline_html(stored_state) -> str:
 
 
 def export_offline_html(path: Path = Path("umsteiger-dashboard.html")) -> Path:
-    path.write_text(render_offline_html(_load_current_state()), encoding="utf-8")
+    path.write_text(render_offline_html(load_state()), encoding="utf-8")
     return path
-
-
-def _load_current_state():
-    return load_state()
 
 
 def _save_parsed_result(records: list[ScoreRecord], warnings: list[ParseWarning], source_name: str) -> None:
@@ -675,7 +619,7 @@ def _handle_export(handler: BaseHTTPRequestHandler, content: str, filename: str,
 class DashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         parsed_url = urlparse(self.path)
-        current_state = _load_current_state()
+        current_state = load_state()
 
         if parsed_url.path.startswith("/assets/"):
             asset_path = Path(__file__).resolve().parent.parent / "assets" / parsed_url.path.removeprefix("/assets/")

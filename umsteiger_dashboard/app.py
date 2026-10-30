@@ -26,6 +26,7 @@ from .storage import (
 )
 
 UPLOADS_PATH = Path(__file__).resolve().parent.parent / "uploads"
+WIN_SNAPSHOT_PATH = Path(__file__).resolve().parent.parent / ".umsteiger_previous_wins.json"
 
 
 def _escape(value: object) -> str:
@@ -271,8 +272,12 @@ def _render_average_chart(series: list[AverageScoreSeries]) -> str:
     return "".join(pieces)
 
 
-def _render_win_counts(win_counts: list[WinCount]) -> str:
-    table = ["<table>", "<thead><tr><th>Player</th><th>Wins</th></tr></thead><tbody>"]
+def _render_win_counts(win_counts: list[WinCount], previous_wins: dict[str, int] | None = None) -> str:
+    comparison_enabled = previous_wins is not None
+    header = "<th>Player</th><th>Latest wins</th>"
+    if comparison_enabled:
+        header += "<th>Previous wins</th>"
+    table = [f"<table><thead><tr>{header}</tr></thead><tbody>"]
     for entry in win_counts:
         portrait_url = _portrait_url(entry.player)
         portrait = ""
@@ -281,15 +286,32 @@ def _render_win_counts(win_counts: list[WinCount]) -> str:
                 f'<img class="win-portrait" src="{_escape(portrait_url)}" '
                 f'alt="Portrait of {_escape(entry.player)}" />'
             )
-        table.append(
+        row = (
             f'<tr><td><div class="win-player">{portrait}'
-            f'<span>{_escape(entry.player)}</span></div></td><td>{entry.wins}</td></tr>'
+            f'<span>{_escape(entry.player)}</span></div></td><td>{entry.wins}</td>'
         )
+        if comparison_enabled:
+            previous = previous_wins.get(entry.player, 0)
+            row += f"<td>{previous}</td>"
+        table.append(row + "</tr>")
+    if comparison_enabled:
+        current_players = {entry.player for entry in win_counts}
+        for player, previous in sorted(previous_wins.items()):
+            if player in current_players:
+                continue
+            table.append(
+                f"<tr><td><div class='win-player'><span>{_escape(player)}</span></div></td>"
+                f"<td>0</td><td>{previous}</td></tr>"
+            )
     table.append("</tbody></table>")
     return "".join(table)
 
 
-def _render_page(stored_state, status_message: str | None = None) -> str:
+def _render_page(
+    stored_state,
+    status_message: str | None = None,
+    previous_wins: dict[str, int] | None = None,
+) -> str:
     records = stored_state.records if stored_state else []
     warnings = stored_state.warnings if stored_state else []
     source_name = stored_state.source_name if stored_state else ""
@@ -414,7 +436,7 @@ def _render_page(stored_state, status_message: str | None = None) -> str:
         parts.append("<section class='panel' style='margin-top: 20px;'>")
         parts.append("<h2>Wins per player</h2>")
         parts.append("<p class='muted'>Each player with the highest score on a day receives one win. Ties count as a win for every tied player.</p>")
-        parts.append(_render_win_counts(win_counts))
+        parts.append(_render_win_counts(win_counts, previous_wins))
         parts.append("</section>")
     else:
         parts.append("<section class='panel' style='margin-top: 20px;'><h2>Daily scores</h2><p class='muted'>Upload a WhatsApp export or a previously exported CSV/JSON backup to populate the dashboard.</p></section>")
@@ -575,8 +597,28 @@ def _state_from_uploads(uploads_path: Path = UPLOADS_PATH) -> StoredState | None
     )
 
 
+def _load_win_snapshot(snapshot_path: Path = WIN_SNAPSHOT_PATH) -> dict[str, int] | None:
+    if not snapshot_path.exists():
+        return None
+    payload = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Win snapshot must contain an object: {snapshot_path}")
+    return {str(player): int(wins) for player, wins in payload.items()}
+
+
+def _save_win_snapshot(win_counts: list[WinCount], snapshot_path: Path = WIN_SNAPSHOT_PATH) -> None:
+    snapshot_path.write_text(
+        json.dumps({entry.player: entry.wins for entry in win_counts}, indent=2),
+        encoding="utf-8",
+    )
+
+
 def export_offline_html(path: Path = Path("umsteiger-dashboard.html")) -> Path:
-    path.write_text(render_offline_html(_state_from_uploads()), encoding="utf-8")
+    stored_state = _state_from_uploads()
+    win_counts = build_win_counts(stored_state.records if stored_state else [])
+    previous_wins = _load_win_snapshot()
+    path.write_text(_embed_assets(_render_page(stored_state, previous_wins=previous_wins)), encoding="utf-8")
+    _save_win_snapshot(win_counts)
     return path
 
 

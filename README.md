@@ -21,6 +21,8 @@ python3 app.py
 
 3. Copy a WhatsApp `.txt` export into the gitignored `uploads/` folder. When you generate an offline HTML dashboard, the most recently modified `.txt` file in that folder is used automatically. If there are no `.txt` files, the dashboard uses the last imported state.
 
+The generated dashboard compares each player's latest win total with the previous generated dashboard. The previous totals are kept locally in the gitignored `.umsteiger_previous_wins.json` file.
+
 To create a dashboard that can be opened without the server, run:
 
 ```bash

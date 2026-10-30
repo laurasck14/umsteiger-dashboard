@@ -6,3 +6,4 @@ __pycache__/
 .umsteiger_state.json
 uploads/
 !uploads/.gitkeep
+.umsteiger_previous_wins.json

@@ -4,8 +4,8 @@ import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from umsteiger_dashboard.app import _render_daily_chart, _render_page, _state_from_uploads
-from umsteiger_dashboard.models import DailyPoint, DailyScoreSeries, ScoreRecord
+from umsteiger_dashboard.app import _render_daily_chart, _render_page, _state_from_uploads, _render_win_counts
+from umsteiger_dashboard.models import DailyPoint, DailyScoreSeries, ScoreRecord, WinCount
 
 
 class AppRenderingTests(unittest.TestCase):
@@ -84,3 +84,15 @@ class AppRenderingTests(unittest.TestCase):
             assert state is not None
             self.assertEqual(state.source_name, "newer.txt")
             self.assertEqual(state.records[0].player, "Ben")
+
+    def test_win_counts_show_previous_and_latest_totals(self) -> None:
+        rows = _render_win_counts(
+            [WinCount(player="Anna", color="#000000", wins=3)],
+            {"Anna": 2, "Ben": 1},
+        )
+
+        self.assertIn("Latest wins", rows)
+        self.assertIn("Previous wins", rows)
+        self.assertNotIn("Change", rows)
+        self.assertIn(">3</td><td>2</td>", rows)
+        self.assertIn(">0</td><td>1</td>", rows)

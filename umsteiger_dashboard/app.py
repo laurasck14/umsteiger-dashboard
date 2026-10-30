@@ -16,6 +16,7 @@ from .charting import build_average_score_series, build_daily_score_series, buil
 from .models import AverageScoreSeries, DailyScoreSeries, ParseWarning, ScoreRecord, WinCount
 from .parser import parse_whatsapp_export
 from .storage import (
+    StoredState,
     export_records_to_csv,
     export_records_to_json,
     import_records_from_csv,
@@ -23,6 +24,8 @@ from .storage import (
     load_state,
     save_state_with_warnings,
 )
+
+UPLOADS_PATH = Path(__file__).resolve().parent.parent / "uploads"
 
 
 def _escape(value: object) -> str:
@@ -553,8 +556,27 @@ def render_offline_html(stored_state) -> str:
     return _embed_assets(_render_page(stored_state))
 
 
+def _state_from_uploads(uploads_path: Path = UPLOADS_PATH) -> StoredState | None:
+    upload_files = sorted(
+        (path for path in uploads_path.glob("*.txt") if path.is_file()),
+        key=lambda path: (path.stat().st_mtime_ns, path.name.casefold()),
+        reverse=True,
+    )
+    if not upload_files:
+        return load_state()
+
+    upload_path = upload_files[0]
+    parsed = parse_whatsapp_export(upload_path.read_text(encoding="utf-8", errors="replace"))
+    return StoredState(
+        records=parsed.records,
+        warnings=parsed.warnings,
+        imported_at=datetime.fromtimestamp(upload_path.stat().st_mtime, timezone.utc).isoformat(),
+        source_name=upload_path.name,
+    )
+
+
 def export_offline_html(path: Path = Path("umsteiger-dashboard.html")) -> Path:
-    path.write_text(render_offline_html(load_state()), encoding="utf-8")
+    path.write_text(render_offline_html(_state_from_uploads()), encoding="utf-8")
     return path
 
 

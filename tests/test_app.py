@@ -1,7 +1,10 @@
 import unittest
 import re
+import os
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
-from umsteiger_dashboard.app import _render_daily_chart, _render_page
+from umsteiger_dashboard.app import _render_daily_chart, _render_page, _state_from_uploads
 from umsteiger_dashboard.models import DailyPoint, DailyScoreSeries, ScoreRecord
 
 
@@ -64,3 +67,20 @@ class AppRenderingTests(unittest.TestCase):
         self.assertIn("Each player's average score across all recorded games.", page)
         self.assertIn("Number(point.dataset.score) >= Number(peak.dataset.score)", page)
         self.assertIn("const portraitRows = new Map();", page)
+
+    def test_state_from_uploads_uses_latest_txt_file(self) -> None:
+        with TemporaryDirectory() as directory:
+            uploads_path = Path(directory)
+            older = uploads_path / "older.txt"
+            newer = uploads_path / "newer.txt"
+            older.write_text("19.09.2026, 09:01 - Anna: umsteigen.app · Berlin 390 / 500\n", encoding="utf-8")
+            newer.write_text("20.09.2026, 09:01 - Ben: umsteigen.app · Berlin 420 / 500\n", encoding="utf-8")
+            os.utime(older, (1000, 1000))
+            os.utime(newer, (2000, 2000))
+
+            state = _state_from_uploads(uploads_path)
+
+            self.assertIsNotNone(state)
+            assert state is not None
+            self.assertEqual(state.source_name, "newer.txt")
+            self.assertEqual(state.records[0].player, "Ben")

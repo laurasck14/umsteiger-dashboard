@@ -4,3 +4,5 @@ umsteiger-dashboard/
 __pycache__/
 *.py[cod]
 .umsteiger_state.json
+uploads/
+!uploads/.gitkeep

@@ -19,7 +19,7 @@ python3 app.py
 
 2. Open the local URL printed in the terminal.
 
-3. Upload a WhatsApp `.txt` export, or a previously exported `.csv` or `.json` backup.
+3. Copy a WhatsApp `.txt` export into the gitignored `uploads/` folder. When you generate an offline HTML dashboard, the most recently modified `.txt` file in that folder is used automatically. If there are no `.txt` files, the dashboard uses the last imported state.
 
 To create a dashboard that can be opened without the server, run:
 
